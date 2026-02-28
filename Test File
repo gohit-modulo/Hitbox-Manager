@@ -1,0 +1,213 @@
+-- TestHitboxes.server.lua
+-- Server-side demonstration of all HitboxManager features
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+
+-- Require HitboxManager
+local HitboxManager = require(game.ServerScriptService.Packages.HitboxManager)
+
+-- Initialize system
+HitboxManager.Init({
+	Debug = true -- set false in production
+})
+
+print("Hitbox Test Script Loaded")
+
+---------------------------------------------------------------------
+-- Utility
+---------------------------------------------------------------------
+
+local function waitForCharacter(player)
+	if player.Character then
+		return player.Character
+	end
+	return player.CharacterAdded:Wait()
+end
+
+---------------------------------------------------------------------
+-- 1. STATIC HITBOX (Fixed Position)
+---------------------------------------------------------------------
+
+local function StaticHitboxExample()
+	print("Running Static Hitbox Example")
+
+	HitboxManager.CreateHitbox({
+		centerCFrame = CFrame.new(0, 15, 0),
+		size = Vector3.new(8, 8, 8),
+		duration = 2,
+		TargetFilter = "Players",
+		OnlyIfPlayer = true,
+		HitMultipleTargets = true,
+		OnHit = function(part, player)
+			print("Static hit:", player.Name)
+		end
+	})
+end
+
+---------------------------------------------------------------------
+-- 2. FOLLOW HITBOX (Aura Around Player)
+---------------------------------------------------------------------
+
+local function FollowHitboxExample(player)
+	print("Running Follow Hitbox Example")
+
+	HitboxManager.CreateHitbox({
+		Follow = player,
+		FollowOffset = CFrame.new(0, 0, 0),
+		size = Vector3.new(6, 6, 6),
+		duration = 5,
+		Track = true,
+		OnlyIfPlayer = true,
+		HitMultipleTargets = true,
+		HitMultipleTime = 1,
+		OnHit = function(part, hitPlayer)
+			print("Aura hit:", hitPlayer.Name)
+		end
+	})
+end
+
+---------------------------------------------------------------------
+-- 3. MELEE STYLE HITBOX (Front of Player)
+---------------------------------------------------------------------
+
+local function MeleeExample(player)
+	print("Running Melee Example")
+
+	HitboxManager.CreateHitbox({
+		Follow = player,
+		FollowOffset = CFrame.new(0, 0, -4),
+		size = Vector3.new(5, 5, 5),
+		duration = 0.25,
+		Track = true,
+		OnlyIfPlayer = true,
+		HitMultipleTargets = false,
+		OnHit = function(part, hitPlayer)
+			print("Melee hit:", hitPlayer.Name)
+		end
+	})
+end
+
+---------------------------------------------------------------------
+-- 4. MOVING PROJECTILE
+---------------------------------------------------------------------
+
+local function ProjectileExample(player)
+	print("Running Projectile Example")
+
+	local character = waitForCharacter(player)
+	local hrp = character:WaitForChild("HumanoidRootPart")
+
+	HitboxManager.CreateHitbox({
+		Follow = hrp,
+		FollowOffset = CFrame.new(0, 0, -2),
+		size = Vector3.new(2, 2, 4),
+		duration = 3,
+		Track = true,
+		Moving = {
+			Direction = Vector3.new(0, 0, -1),
+			Speed = 80,
+			TrackTarget = true
+		},
+		OnlyIfPlayer = true,
+		HitMultipleTargets = false,
+		OnHit = function(part, hitPlayer)
+			print("Projectile hit:", hitPlayer.Name)
+		end
+	})
+end
+
+---------------------------------------------------------------------
+-- 5. AREA EXPLOSION
+---------------------------------------------------------------------
+
+local function ExplosionExample(position)
+	print("Running Explosion Example")
+
+	HitboxManager.CreateHitbox({
+		centerCFrame = CFrame.new(position),
+		size = Vector3.new(12, 12, 12),
+		duration = 0.2,
+		HitMultipleTargets = true,
+		OnlyIfPlayer = true,
+		OnHit = function(part, player)
+			print("Explosion hit:", player.Name)
+		end
+	})
+end
+
+---------------------------------------------------------------------
+-- 6. CUSTOM FILTER (Hit Only NPC Models)
+---------------------------------------------------------------------
+
+local function CustomFilterExample(position)
+	print("Running Custom Filter Example")
+
+	HitboxManager.CreateHitbox({
+		centerCFrame = CFrame.new(position),
+		size = Vector3.new(10, 10, 10),
+		duration = 2,
+		TargetFilter = function(part)
+			if part.Parent and part.Parent:FindFirstChild("Humanoid") then
+				return not Players:GetPlayerFromCharacter(part.Parent)
+			end
+			return false
+		end,
+		OnlyIfPlayer = false,
+		HitMultipleTargets = true,
+		OnHit = function(part)
+			print("NPC hit:", part.Parent.Name)
+		end
+	})
+end
+
+---------------------------------------------------------------------
+-- 7. GLOBAL COOLDOWN EXAMPLE
+---------------------------------------------------------------------
+
+local function GlobalCooldownExample(player)
+	print("Running Global Cooldown Example")
+
+	for i = 1, 3 do
+		HitboxManager.CreateHitbox({
+			Follow = player,
+			FollowOffset = CFrame.new(0, 0, -3),
+			size = Vector3.new(6, 6, 6),
+			duration = 0.5,
+			Track = true,
+			OnlyIfPlayer = true,
+			HitMultipleTargets = true,
+			UseGlobalCooldown = true,
+			OnHit = function(part, hitPlayer)
+				print("Global cooldown hit:", hitPlayer.Name)
+			end
+		})
+	end
+end
+
+---------------------------------------------------------------------
+-- AUTO TEST WHEN PLAYER JOINS
+---------------------------------------------------------------------
+
+Players.PlayerAdded:Connect(function(player)
+	player.CharacterAdded:Connect(function()
+		task.wait(3)
+
+		StaticHitboxExample()
+		task.wait(3)
+
+		FollowHitboxExample(player)
+		task.wait(6)
+
+		MeleeExample(player)
+		task.wait(2)
+
+		ProjectileExample(player)
+		task.wait(4)
+
+		ExplosionExample(Vector3.new(0, 10, 0))
+		task.wait(3)
+
+		GlobalCooldownExample(player)
+	end)
+end)
